@@ -1,19 +1,12 @@
-"""
-In-memory store for:
-- ChromaDB collections (per session)
-- Source metadata (per session)
-- Conversation history (per session)
-"""
 import chromadb
 from typing import Dict, List
+from config import get_settings
 
-# Global ChromaDB client (in-memory)
-chroma_client = chromadb.Client()
+settings = get_settings()
 
-# session_id -> list of source metadata dicts
+chroma_client = chromadb.PersistentClient(path=settings.chroma_path)
+
 session_sources: Dict[str, List[dict]] = {}
-
-# session_id -> list of {role, content} dicts
 session_history: Dict[str, List[dict]] = {}
 
 

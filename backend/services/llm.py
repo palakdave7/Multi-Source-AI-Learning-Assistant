@@ -1,7 +1,9 @@
 import os
 from groq import Groq
 from typing import List, Generator
+from config import get_settings
 
+settings = get_settings()
 _client = Groq(api_key=os.environ["GROQ_API_KEY"])
 MODEL = "llama-3.3-70b-versatile"
 
