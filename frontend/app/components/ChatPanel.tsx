@@ -13,6 +13,154 @@ import {
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import toast from "react-hot-toast";
+import { motion, AnimatePresence } from "framer-motion";
+import { MessageSkeleton } from "./SkeletonLoader";
+
+const API = `${process.env.NEXT_PUBLIC_API_URL}/api/chat`;
+
+interface Message {
+  role: "user" | "assistant";
+  content: string;
+  refs?: string[];
+}
+
+interface Props {
+  sessionId: string;
+  sources: any[];
+}
+
+function FlashcardsView({
+  flashcards,
+  loading,
+  onRegenerate,
+}: {
+  flashcards: { front: string; back: string }[];
+  loading: boolean;
+  onRegenerate: () => void;
+}) {
+  const [current, setCurrent] = useState(0);
+  const [flipped, setFlipped] = useState(false);
+  const [finished, setFinished] = useState(false);
+
+  useEffect(() => {
+    setFlipped(false);
+  }, [current]);
+
+  useEffect(() => {
+    setCurrent(0);
+    setFlipped(false);
+    setFinished(false);
+  }, [flashcards]);
+
+  if (loading)
+    return (
+      <div className="flex items-center gap-2 text-indigo-400 py-10 justify-center">
+        <Loader2 size={16} className="animate-spin" /> Generating flashcards...
+      </div>
+    );
+
+  if (flashcards.length === 0)
+    return (
+      <div className="text-center text-slate-400 py-10">
+        No flashcards generated yet.
+      </div>
+    );
+
+  if (finished)
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="flex flex-col items-center gap-4 py-10"
+      >
+        <div className="text-5xl">🎉</div>
+        <h3 className="text-white text-xl font-bold">All cards reviewed!</h3>
+        <p className="text-slate-400 text-sm">
+          Great job studying these concepts.
+        </p>
+        <div className="flex gap-3">
+          <button
+            onClick={() => {
+              setCurrent(0);
+              setFlipped(false);
+              setFinished(false);
+            }}
+            className="bg-slate-700 hover:bg-slate-600 text-white text-sm px-4 py-2 rounded-lg transition"
+          >
+            Review Again
+          </button>
+          <button
+            onClick={onRegenerate}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg transition flex items-center gap-2"
+          >
+            <RefreshCw size={14} /> New Set
+          </button>
+        </div>
+      </motion.div>
+    );
+
+  const card = flashcards[current];
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-4 py-4">
+      <div className="flex items-center justify-between text-xs text-slate-400">
+        <span>
+          Card {current + 1} of {flashcards.length}
+        </span>
+        <button
+          onClick={onRegenerate}
+          className="flex items-center gap-1 hover:text-slate-200 transition"
+        >
+          <RefreshCw size={11} /> New set
+        </button>
+      </div>
+      <div className="w-full bg-slate-700 rounded-full h-1.5">
+        <div
+          className="bg-indigo-500 h-1.5 rounded-full transition-all"
+          style={{
+            width: `${((current + 1) / flashcards.length) * 100}%`,
+          }}
+        />
+      </div>
+
+      <motion.div
+        key={`${current}-${flipped}`}
+        initial={{ opacity: 0, rotateY: 90 }}
+        animate={{ opacity: 1, rotateY: 0 }}
+        transition={{ duration: 0.2 }}
+        onClick={() => setFlipped(!flipped)}
+        className="cursor-pointer bg-slate-800 border border-slate-700 hover:border-indigo-500 rounded-2xl p-8 min-h-[200px] flex flex-col items-center justify-center text-center transition-colors"
+      >
+        <p className="text-xs text-slate-500 mb-3 uppercase tracking-wider">
+          {flipped ? "Answer" : "Question — click to reveal"}
+        </p>
+        <p className="text-white text-base leading-relaxed">
+          {flipped ? card.back : card.front}
+        </p>
+      </motion.div>
+
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => setCurrent((c) => Math.max(0, c - 1))}
+          disabled={current === 0}
+          className="bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-white text-sm px-4 py-2 rounded-lg transition"
+        >
+          ← Previous
+        </button>
+        <p className="text-xs text-slate-500">Click card to flip</p>
+        <button
+          onClick={() => {
+            if (current + 1 >= flashcards.length) setFinished(true);
+            else setCurrent((c) => c + 1);
+          }}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg transition"
+        >
+          {current + 1 >= flashcards.length ? "Finish ✓" : "Next →"}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function QuizView({
   quiz,
@@ -78,7 +226,11 @@ function QuizView({
 
   if (finished)
     return (
-      <div className="flex flex-col items-center gap-4 py-10">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="flex flex-col items-center gap-4 py-10"
+      >
         <div className="text-5xl">
           {score === questions.length
             ? "🏆"
@@ -99,14 +251,13 @@ function QuizView({
         >
           <RefreshCw size={14} /> New Quiz
         </button>
-      </div>
+      </motion.div>
     );
 
   const q = questions[current];
 
   return (
     <div className="max-w-2xl mx-auto space-y-4 py-4">
-      {/* Progress */}
       <div className="flex items-center justify-between text-xs text-slate-400">
         <span>
           Question {current + 1} of {questions.length}
@@ -122,14 +273,17 @@ function QuizView({
         />
       </div>
 
-      {/* Question */}
-      <div className="bg-slate-800 rounded-xl p-5">
+      <motion.div
+        key={current}
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        className="bg-slate-800 rounded-xl p-5"
+      >
         <p className="text-white font-medium text-base leading-relaxed">
           {q.question}
         </p>
-      </div>
+      </motion.div>
 
-      {/* Options */}
       <div className="space-y-2">
         {q.options.map((opt: { key: string; text: string }) => {
           let style =
@@ -142,8 +296,10 @@ function QuizView({
             else style = "bg-slate-800 border-slate-700 text-slate-500";
           }
           return (
-            <button
+            <motion.button
               key={opt.key}
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
               disabled={!!selected}
               onClick={() => {
                 setSelected(opt.key);
@@ -155,20 +311,29 @@ function QuizView({
                 {opt.key.toUpperCase()})
               </span>{" "}
               {opt.text}
-            </button>
+            </motion.button>
           );
         })}
       </div>
 
-      {/* Next */}
       {selected && (
-        <div className="flex items-center justify-between">
+        <motion.div
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-between"
+        >
           <p
-            className={`text-sm font-medium ${selected === q.answer ? "text-green-400" : "text-red-400"}`}
+            className={`text-sm font-medium ${
+              selected === q.answer ? "text-green-400" : "text-red-400"
+            }`}
           >
             {selected === q.answer
               ? "✓ Correct!"
-              : `✗ Correct answer: ${q.answer.toUpperCase()}) ${q.options.find((o: { key: string; text: string }) => o.key === q.answer)?.text}`}
+              : `✗ Correct answer: ${q.answer.toUpperCase()}) ${
+                  q.options.find(
+                    (o: { key: string; text: string }) => o.key === q.answer,
+                  )?.text
+                }`}
           </p>
           <button
             onClick={() => {
@@ -182,23 +347,10 @@ function QuizView({
           >
             {current + 1 >= questions.length ? "See Results" : "Next →"}
           </button>
-        </div>
+        </motion.div>
       )}
     </div>
   );
-}
-
-const API = `${process.env.NEXT_PUBLIC_API_URL}/api/chat`;
-
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-  refs?: string[];
-}
-
-interface Props {
-  sessionId: string;
-  sources: any[];
 }
 
 export default function ChatPanel({ sessionId, sources }: Props) {
@@ -208,137 +360,15 @@ export default function ChatPanel({ sessionId, sources }: Props) {
   const [quizMode, setQuizMode] = useState(false);
   const [quiz, setQuiz] = useState("");
   const [quizLoading, setQuizLoading] = useState(false);
-  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const lastUserMessage = useRef<string>("");
-
   const [flashcardMode, setFlashcardMode] = useState(false);
   const [flashcards, setFlashcards] = useState<
     { front: string; back: string }[]
   >([]);
   const [flashcardLoading, setFlashcardLoading] = useState(false);
-  function FlashcardsView({
-    flashcards,
-    loading,
-    onRegenerate,
-  }: {
-    flashcards: { front: string; back: string }[];
-    loading: boolean;
-    onRegenerate: () => void;
-  }) {
-    const [current, setCurrent] = useState(0);
-    const [flipped, setFlipped] = useState(false);
-    const [finished, setFinished] = useState(false);
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const lastUserMessage = useRef<string>("");
 
-    useEffect(() => {
-      setFlipped(false);
-    }, [current]);
-    useEffect(() => {
-      setCurrent(0);
-      setFlipped(false);
-      setFinished(false);
-    }, [flashcards]);
-
-    if (loading)
-      return (
-        <div className="flex items-center gap-2 text-indigo-400 py-10 justify-center">
-          <Loader2 size={16} className="animate-spin" /> Generating
-          flashcards...
-        </div>
-      );
-
-    if (finished)
-      return (
-        <div className="flex flex-col items-center gap-4 py-10">
-          <div className="text-5xl">🎉</div>
-          <h3 className="text-white text-xl font-bold">All cards reviewed!</h3>
-          <p className="text-slate-400 text-sm">
-            Great job studying these concepts.
-          </p>
-          <div className="flex gap-3">
-            <button
-              onClick={() => {
-                setCurrent(0);
-                setFlipped(false);
-                setFinished(false);
-              }}
-              className="bg-slate-700 hover:bg-slate-600 text-white text-sm px-4 py-2 rounded-lg transition"
-            >
-              Review Again
-            </button>
-            <button
-              onClick={onRegenerate}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg transition flex items-center gap-2"
-            >
-              <RefreshCw size={14} /> New Set
-            </button>
-          </div>
-        </div>
-      );
-
-    const card = flashcards[current];
-
-    return (
-      <div className="max-w-2xl mx-auto space-y-4 py-4">
-        {/* Progress */}
-        <div className="flex items-center justify-between text-xs text-slate-400">
-          <span>
-            Card {current + 1} of {flashcards.length}
-          </span>
-          <button
-            onClick={onRegenerate}
-            className="flex items-center gap-1 hover:text-slate-200 transition"
-          >
-            <RefreshCw size={11} /> New set
-          </button>
-        </div>
-        <div className="w-full bg-slate-700 rounded-full h-1.5">
-          <div
-            className="bg-indigo-500 h-1.5 rounded-full transition-all"
-            style={{ width: `${((current + 1) / flashcards.length) * 100}%` }}
-          />
-        </div>
-
-        {/* Card */}
-        <div
-          onClick={() => setFlipped(!flipped)}
-          className="cursor-pointer bg-slate-800 border border-slate-700 hover:border-indigo-500 rounded-2xl p-8 min-h-[200px] flex flex-col items-center justify-center text-center transition-all"
-        >
-          <p className="text-xs text-slate-500 mb-3 uppercase tracking-wider">
-            {flipped ? "Answer" : "Question — click to reveal"}
-          </p>
-          <p className="text-white text-base leading-relaxed">
-            {flipped ? card.back : card.front}
-          </p>
-        </div>
-
-        {/* Navigation */}
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => {
-              setCurrent((c) => Math.max(0, c - 1));
-            }}
-            disabled={current === 0}
-            className="bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-white text-sm px-4 py-2 rounded-lg transition"
-          >
-            ← Previous
-          </button>
-          <p className="text-xs text-slate-500">Click card to flip</p>
-          <button
-            onClick={() => {
-              if (current + 1 >= flashcards.length) setFinished(true);
-              else {
-                setCurrent((c) => c + 1);
-              }
-            }}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg transition"
-          >
-            {current + 1 >= flashcards.length ? "Finish ✓" : "Next →"}
-          </button>
-        </div>
-      </div>
-    );
-  }
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, quiz]);
@@ -347,7 +377,6 @@ export default function ChatPanel({ sessionId, sources }: Props) {
     const userMsg = overrideMessage || input.trim();
     if (!userMsg || streaming || !sessionId) return;
     if (!overrideMessage) setInput("");
-
     if (!overrideMessage) {
       setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
     }
@@ -393,7 +422,10 @@ export default function ChatPanel({ sessionId, sources }: Props) {
 
       setMessages((prev) => {
         const updated = [...prev];
-        updated[updated.length - 1] = { ...updated[updated.length - 1], refs };
+        updated[updated.length - 1] = {
+          ...updated[updated.length - 1],
+          refs,
+        };
         return updated;
       });
     } catch (e) {
@@ -425,6 +457,7 @@ export default function ChatPanel({ sessionId, sources }: Props) {
   async function loadQuiz() {
     setQuizLoading(true);
     setQuizMode(true);
+    setFlashcardMode(false);
     try {
       const res = await fetch(`${API}/quiz`, {
         method: "POST",
@@ -468,31 +501,45 @@ export default function ChatPanel({ sessionId, sources }: Props) {
           <p className="text-xs text-slate-400">
             {sources.length === 0
               ? "Add sources from the left panel to begin"
-              : `${sources.length} source${sources.length > 1 ? "s" : ""} loaded — ask anything`}
+              : `${sources.length} source${
+                  sources.length > 1 ? "s" : ""
+                } loaded — ask anything`}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap justify-end">
           <button
             onClick={() => {
               setQuizMode(false);
               setQuiz("");
               setFlashcardMode(false);
             }}
-            className={`text-xs px-3 py-1.5 rounded-lg transition ${!quizMode ? "bg-indigo-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-slate-600"}`}
+            className={`text-xs px-3 py-1.5 rounded-lg transition ${
+              !quizMode && !flashcardMode
+                ? "bg-indigo-600 text-white"
+                : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+            }`}
           >
             Chat
           </button>
           <button
             onClick={loadQuiz}
             disabled={sources.length === 0}
-            className={`text-xs px-3 py-1.5 rounded-lg transition flex items-center gap-1 ${quizMode ? "bg-indigo-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-slate-600"} disabled:opacity-40`}
+            className={`text-xs px-3 py-1.5 rounded-lg transition flex items-center gap-1 ${
+              quizMode
+                ? "bg-indigo-600 text-white"
+                : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+            } disabled:opacity-40`}
           >
             <BookOpen size={12} /> Quiz Me
           </button>
           <button
             onClick={loadFlashcards}
             disabled={sources.length === 0}
-            className={`text-xs px-3 py-1.5 rounded-lg transition flex items-center gap-1 ${flashcardMode ? "bg-indigo-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-slate-600"} disabled:opacity-40`}
+            className={`text-xs px-3 py-1.5 rounded-lg transition flex items-center gap-1 ${
+              flashcardMode
+                ? "bg-indigo-600 text-white"
+                : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+            } disabled:opacity-40`}
           >
             <Layers size={12} /> Flashcards
           </button>
@@ -508,7 +555,7 @@ export default function ChatPanel({ sessionId, sources }: Props) {
         </div>
       </div>
 
-      {/* Messages / Quiz */}
+      {/* Content */}
       <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-4 space-y-4">
         {flashcardMode ? (
           <FlashcardsView
@@ -521,19 +568,52 @@ export default function ChatPanel({ sessionId, sources }: Props) {
         ) : (
           <>
             {messages.length === 0 && (
-              <div className="flex flex-col items-center justify-center h-full text-center gap-3 py-20">
-                <div className="text-4xl">🧠</div>
-                <p className="text-slate-400 text-sm max-w-xs">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.3 }}
+                className="flex flex-col items-center justify-center h-full text-center gap-3 py-20"
+              >
+                <div className="text-5xl">🧠</div>
+                <h3 className="text-white font-semibold text-lg">
                   {sources.length === 0
-                    ? "Add a YouTube video, PDF, PPTX, or webpage to get started."
-                    : `Ask anything about your loaded sources! Try: "explain this in simple terms" or "summarize the key points"`}
+                    ? "Add a source to get started"
+                    : "Ready to help you learn!"}
+                </h3>
+                <p className="text-slate-400 text-sm max-w-sm">
+                  {sources.length === 0
+                    ? "Upload a PDF, PPTX, paste a YouTube URL or webpage link from the left panel."
+                    : `Ask anything about your ${sources.length} loaded source${sources.length > 1 ? "s" : ""}. Try: "explain this in simple terms" or "summarize the key points"`}
                 </p>
-              </div>
+                {sources.length > 0 && (
+                  <div className="flex flex-wrap gap-2 justify-center mt-2">
+                    {[
+                      "Summarize the key points",
+                      "Explain in simple terms",
+                      "What are the main topics?",
+                    ].map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        onClick={() => sendMessage(suggestion)}
+                        className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-full border border-slate-600 transition"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
             )}
+
             {messages.map((msg, i) => (
-              <div
+              <motion.div
                 key={i}
-                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+                className={`flex ${
+                  msg.role === "user" ? "justify-end" : "justify-start"
+                }`}
               >
                 <div className="max-w-[75%] space-y-1">
                   <div
@@ -580,21 +660,15 @@ export default function ChatPanel({ sessionId, sources }: Props) {
                         </ReactMarkdown>
                       ) : (
                         streaming &&
-                        i === messages.length - 1 && (
-                          <span className="flex items-center gap-1 text-slate-400">
-                            <Loader2 size={12} className="animate-spin" />{" "}
-                            Thinking...
-                          </span>
-                        )
+                        i === messages.length - 1 && <MessageSkeleton />
                       )
                     ) : (
                       msg.content
                     )}
                   </div>
 
-                  {/* Action buttons for assistant messages */}
                   {msg.role === "assistant" && msg.content && (
-                    <div className="flex items-center gap-2 px-1">
+                    <div className="flex items-center gap-2 px-1 flex-wrap">
                       <button
                         onClick={() => copyMessage(msg.content, i)}
                         className="text-slate-500 hover:text-slate-300 transition flex items-center gap-1 text-xs"
@@ -616,7 +690,7 @@ export default function ChatPanel({ sessionId, sources }: Props) {
                         </button>
                       )}
                       {msg.refs && msg.refs.length > 0 && (
-                        <div className="flex flex-wrap gap-1 ml-2">
+                        <div className="flex flex-wrap gap-1 ml-1">
                           {msg.refs.map((ref, j) => (
                             <span
                               key={j}
@@ -630,7 +704,7 @@ export default function ChatPanel({ sessionId, sources }: Props) {
                     </div>
                   )}
                 </div>
-              </div>
+              </motion.div>
             ))}
           </>
         )}
@@ -638,7 +712,7 @@ export default function ChatPanel({ sessionId, sources }: Props) {
       </div>
 
       {/* Input */}
-      {!quizMode && (
+      {!quizMode && !flashcardMode && (
         <div className="px-6 py-4 border-t border-slate-700">
           <div className="flex gap-3 items-end">
             <textarea
