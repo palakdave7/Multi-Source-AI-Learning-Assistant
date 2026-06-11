@@ -1,4 +1,4 @@
-("use client");
+"use client";
 import { useState, useEffect } from "react";
 import SourcePanel from "./components/SourcePanel";
 import ChatPanel from "./components/ChatPanel";
@@ -8,7 +8,9 @@ export default function Home() {
   const [sources, setSources] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch("http://localhost:8000/api/ingest/new-session", { method: "POST" })
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/ingest/new-session`, {
+      method: "POST",
+    })
       .then((r) => r.json())
       .then((d) => setSessionId(d.session_id));
   }, []);
