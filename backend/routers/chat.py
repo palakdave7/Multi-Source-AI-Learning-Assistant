@@ -42,7 +42,14 @@ async def quiz(req: QuizRequest):
     sources = get_sources(req.session_id)
     if not sources:
         return {"quiz": "No sources loaded yet."}
-    combined = " ".join(s.get("summary_snippet", "") for s in sources)
+    
+    # Use retrieval to get best chunks for quiz generation
+    chunks = retrieve_chunks(req.session_id, "key concepts topics main ideas", top_k=8)
+    if not chunks:
+        combined = " ".join(s.get("summary_snippet", "") for s in sources)
+    else:
+        combined = "\n\n".join(f"[{c['ref']}]\n{c['text']}" for c in chunks)
+    
     return {"quiz": generate_quiz(combined)}
 
 

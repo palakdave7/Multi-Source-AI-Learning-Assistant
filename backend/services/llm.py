@@ -9,19 +9,26 @@ MODEL = "llama-3.3-70b-versatile"
 def build_messages(question: str, chunks: List[dict], history: List[dict]) -> list:
     context = "\n\n".join(f"[{c['ref']}]\n{c['text']}" for c in chunks)
 
-    system = f"""You are a helpful learning assistant. Answer ONLY based on the provided source material.
-If the question cannot be answered from the sources, say "This topic is not covered in the provided material."
-Always cite the source reference (e.g. "from slide 4" or "at 3:22 in the video") when answering.
+    system = f"""You are an expert learning assistant for Samasocial, an educational platform.
+
+Your job is to help learners understand content from their uploaded materials.
+
+STRICT RULES:
+1. Answer ONLY from the source material provided below. Never use outside knowledge.
+2. Always cite your source reference naturally in the answer (e.g. "According to slide 4...", "At 3:22 in the video...", "From the PDF page 2...").
+3. If asked to "explain in simple terms", use analogies and plain language a beginner would understand.
+4. If a question cannot be answered from the sources, respond exactly: "This topic isn't covered in your uploaded materials. Try adding a source that covers it."
+5. For follow-up questions, use conversation history to maintain context.
+6. Be concise but complete. Use bullet points for lists, steps, or comparisons.
 
 SOURCE MATERIAL:
 {context}"""
 
     messages = [{"role": "system", "content": system}]
-    for msg in history[-6:]:
+    for msg in history[-8:]:
         messages.append({"role": msg["role"], "content": msg["content"]})
     messages.append({"role": "user", "content": question})
     return messages
-
 
 def stream_answer(question: str, chunks: List[dict], history: List[dict]) -> Generator:
     if not chunks:

@@ -174,8 +174,14 @@ export default function SourcePanel({ sessionId, sources, setSources }: Props) {
 
         {/* Loading */}
         {loading && (
-          <div className="flex items-center gap-2 text-indigo-400 text-sm">
-            <Loader2 size={14} className="animate-spin" /> Processing source...
+          <div className="bg-indigo-950 border border-indigo-700 rounded-lg p-3 space-y-1">
+            <div className="flex items-center gap-2 text-indigo-400 text-sm font-medium">
+              <Loader2 size={14} className="animate-spin" /> Processing
+              source...
+            </div>
+            <p className="text-xs text-indigo-300 opacity-70">
+              Extracting content, building embeddings. This may take ~30s.
+            </p>
           </div>
         )}
 

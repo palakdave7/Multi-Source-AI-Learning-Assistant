@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { Send, BookOpen, Loader2 } from "lucide-react";
+import { Send, BookOpen, Loader2, Trash2 } from "lucide-react";
 
 const API = `${process.env.NEXT_PUBLIC_API_URL}/api/chat`;
 
@@ -115,7 +115,7 @@ export default function ChatPanel({ sessionId, sources }: Props) {
           <p className="text-xs text-slate-400">
             {sources.length === 0
               ? "Add sources from the left panel to begin"
-              : `${sources.length} source${sources.length > 1 ? "s" : ""} loaded`}
+              : `${sources.length} source${sources.length > 1 ? "s" : ""} loaded — ask anything`}
           </p>
         </div>
         <div className="flex gap-2">
@@ -137,6 +137,12 @@ export default function ChatPanel({ sessionId, sources }: Props) {
           </button>
         </div>
       </div>
+      <button
+        onClick={() => setMessages([])}
+        className="text-xs px-3 py-1.5 rounded-lg bg-slate-700 text-slate-300 hover:bg-red-900 hover:text-red-300 transition flex items-center gap-1"
+      >
+        <Trash2 size={12} /> Clear
+      </button>
 
       {/* Messages / Quiz */}
       <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-4 space-y-4">
@@ -161,7 +167,7 @@ export default function ChatPanel({ sessionId, sources }: Props) {
                 <p className="text-slate-400 text-sm max-w-xs">
                   {sources.length === 0
                     ? "Add a YouTube video, PDF, PPTX, or webpage to get started."
-                    : "Ask anything about your loaded sources!"}
+                    : 'Ask anything about your loaded sources! Try: "explain this in simple terms" or "summarize the key points"'}
                 </p>
               </div>
             )}
