@@ -1,32 +1,33 @@
-import type { Metadata } from "next";
-import localFont from "next/font/local";
 import "./globals.css";
+import type { Metadata } from "next";
+import { Toaster } from "react-hot-toast";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-});
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
-});
-
-export const metadata = {
+export const metadata: Metadata = {
   title: "Samasocial AI Learning Assistant",
   description: "Chat with your learning materials",
 };
+
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body>
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            style: {
+              background: "#1e293b",
+              color: "#e2e8f0",
+              border: "1px solid #334155",
+              fontSize: "13px",
+            },
+            success: { iconTheme: { primary: "#6366f1", secondary: "#fff" } },
+            error: { iconTheme: { primary: "#ef4444", secondary: "#fff" } },
+          }}
+        />
         {children}
       </body>
     </html>

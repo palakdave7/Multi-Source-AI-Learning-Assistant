@@ -1,4 +1,4 @@
-"use client";
+("use client");
 import { useState, useEffect } from "react";
 import SourcePanel from "./components/SourcePanel";
 import ChatPanel from "./components/ChatPanel";

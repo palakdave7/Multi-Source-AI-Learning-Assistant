@@ -6,10 +6,12 @@ import {
   Presentation,
   Globe,
   Loader2,
-  CheckCircle,
   ChevronDown,
   ChevronUp,
+  Trash2,
+  X,
 } from "lucide-react";
+import toast from "react-hot-toast";
 
 const API = `${process.env.NEXT_PUBLIC_API_URL}/api/ingest`;
 
@@ -21,7 +23,6 @@ interface Props {
 
 export default function SourcePanel({ sessionId, sources, setSources }: Props) {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [webUrl, setWebUrl] = useState("");
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
@@ -40,7 +41,7 @@ export default function SourcePanel({ sessionId, sources, setSources }: Props) {
 
   async function ingestFile(file: File, type: "pdf" | "pptx") {
     setLoading(true);
-    setError("");
+    const toastId = toast.loading(`Processing ${file.name}...`);
     const form = new FormData();
     form.append("session_id", sessionId);
     form.append("file", file);
@@ -49,8 +50,9 @@ export default function SourcePanel({ sessionId, sources, setSources }: Props) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Failed");
       setSources([...sources, data.source]);
+      toast.success(`${file.name} added successfully!`, { id: toastId });
     } catch (e: any) {
-      setError(e.message);
+      toast.error(e.message, { id: toastId });
     } finally {
       setLoading(false);
     }
@@ -58,7 +60,7 @@ export default function SourcePanel({ sessionId, sources, setSources }: Props) {
 
   async function ingest(type: string, body: Record<string, string>) {
     setLoading(true);
-    setError("");
+    const toastId = toast.loading("Processing source, this may take ~30s...");
     try {
       const form = new URLSearchParams(body);
       const res = await fetch(`${API}/${type}`, {
@@ -69,11 +71,19 @@ export default function SourcePanel({ sessionId, sources, setSources }: Props) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Failed");
       setSources([...sources, data.source]);
+      toast.success("Source added successfully!", { id: toastId });
     } catch (e: any) {
-      setError(e.message);
+      toast.error(e.message, { id: toastId });
     } finally {
       setLoading(false);
     }
+  }
+
+  function removeSource(idx: number) {
+    const updated = sources.filter((_, i) => i !== idx);
+    setSources(updated);
+    toast.success("Source removed");
+    if (expandedIdx === idx) setExpandedIdx(null);
   }
 
   const sourceIcon = (type: string) => {
@@ -184,34 +194,54 @@ export default function SourcePanel({ sessionId, sources, setSources }: Props) {
             </p>
           </div>
         )}
-
-        {/* Error */}
-        {error && <p className="text-red-400 text-xs">{error}</p>}
       </div>
 
       {/* Loaded Sources */}
       {sources.length > 0 && (
         <div className="border-t border-slate-700 p-4 space-y-2 max-h-64 overflow-y-auto scrollbar-thin">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            Loaded Sources
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              Loaded Sources
+            </p>
+            <button
+              onClick={() => {
+                setSources([]);
+                toast.success("All sources cleared");
+              }}
+              className="text-xs text-slate-500 hover:text-red-400 transition flex items-center gap-1"
+            >
+              <Trash2 size={10} /> Clear all
+            </button>
+          </div>
           {sources.map((s, i) => (
             <div key={i} className="bg-slate-800 rounded-lg p-2">
-              <button
-                className="w-full flex items-center justify-between gap-2 text-left"
-                onClick={() => setExpandedIdx(expandedIdx === i ? null : i)}
-              >
-                <span className="flex items-center gap-1 text-xs text-white font-medium truncate">
-                  {sourceIcon(s.type)} {s.label}
-                </span>
-                <span className="text-slate-400 flex-shrink-0">
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  className="flex-1 flex items-center justify-between gap-2 text-left"
+                  onClick={() => setExpandedIdx(expandedIdx === i ? null : i)}
+                >
+                  <span className="flex items-center gap-1 text-xs text-white font-medium truncate">
+                    {sourceIcon(s.type)} {s.label}
+                  </span>
                   {expandedIdx === i ? (
-                    <ChevronUp size={12} />
+                    <ChevronUp
+                      size={12}
+                      className="text-slate-400 flex-shrink-0"
+                    />
                   ) : (
-                    <ChevronDown size={12} />
+                    <ChevronDown
+                      size={12}
+                      className="text-slate-400 flex-shrink-0"
+                    />
                   )}
-                </span>
-              </button>
+                </button>
+                <button
+                  onClick={() => removeSource(i)}
+                  className="text-slate-500 hover:text-red-400 transition flex-shrink-0"
+                >
+                  <X size={12} />
+                </button>
+              </div>
               {expandedIdx === i && s.summary && (
                 <p className="text-xs text-slate-400 mt-2 leading-relaxed">
                   {s.summary}
