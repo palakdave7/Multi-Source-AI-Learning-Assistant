@@ -1,4 +1,6 @@
 "use client";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useState, useRef, useEffect } from "react";
 import { Send, BookOpen, Loader2, Trash2 } from "lucide-react";
 
@@ -183,13 +185,53 @@ export default function ChatPanel({ sessionId, sources }: Props) {
                       : "bg-slate-800 text-slate-200"
                   }`}
                 >
-                  {msg.content ||
-                    (streaming && i === messages.length - 1 && (
-                      <span className="flex items-center gap-1 text-slate-400">
-                        <Loader2 size={12} className="animate-spin" />{" "}
-                        Thinking...
-                      </span>
-                    ))}
+                  {msg.role === "assistant" ? (
+                    msg.content ? (
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          p: ({ children }) => (
+                            <p className="mb-2 last:mb-0">{children}</p>
+                          ),
+                          ul: ({ children }) => (
+                            <ul className="list-disc pl-4 mb-2 space-y-1">
+                              {children}
+                            </ul>
+                          ),
+                          ol: ({ children }) => (
+                            <ol className="list-decimal pl-4 mb-2 space-y-1">
+                              {children}
+                            </ol>
+                          ),
+                          li: ({ children }) => (
+                            <li className="text-sm">{children}</li>
+                          ),
+                          code: ({ children }) => (
+                            <code className="bg-slate-700 px-1 py-0.5 rounded text-xs font-mono">
+                              {children}
+                            </code>
+                          ),
+                          strong: ({ children }) => (
+                            <strong className="font-semibold text-white">
+                              {children}
+                            </strong>
+                          ),
+                        }}
+                      >
+                        {msg.content}
+                      </ReactMarkdown>
+                    ) : (
+                      streaming &&
+                      i === messages.length - 1 && (
+                        <span className="flex items-center gap-1 text-slate-400">
+                          <Loader2 size={12} className="animate-spin" />{" "}
+                          Thinking...
+                        </span>
+                      )
+                    )
+                  ) : (
+                    msg.content
+                  )}
                   {msg.refs && msg.refs.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1">
                       {msg.refs.map((ref, j) => (
