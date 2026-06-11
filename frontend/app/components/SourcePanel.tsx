@@ -11,7 +11,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 
-const API = "http://localhost:8000/api/ingest";
+const API = `${process.env.NEXT_PUBLIC_API_URL}/api/ingest`;
 
 interface Props {
   sessionId: string;

@@ -1,0 +1,8 @@
+[33m4e75ccd[m[33m ([m[1;36mHEAD -> [m[1;32mmaster[m[33m)[m feat: complete frontend with chat, source panel, quiz mode, streaming
+[33m6a3f981[m feat: ingest and chat routers, full backend complete
+[33md4afb7c[m feat: LLM service using Groq llama-3.3-70b, quiz and summary generation
+[33mb08be5e[m fix: remove .env from tracking, add .gitignore
+[33m168ad97[m feat: local sentence-transformers embeddings, retrieval service
+[33mf074be7[m feat: Gemini embeddings service using gemini-embedding-001
+[33m845753e[m feat: source parsers for YouTube, PDF, PPTX, and URL
+[33mbb3a53a[m feat: initial project scaffold with backend dependencies

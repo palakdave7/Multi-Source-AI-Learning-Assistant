@@ -38,7 +38,10 @@ def _extract_youtube_id(url: str) -> str:
 
 def process_youtube(url: str) -> dict:
     video_id = _extract_youtube_id(url)
-    transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
+    try:
+        transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
+    except Exception:
+        raise ValueError("Could not fetch transcript. The video may have no captions or be private.")
 
     # Build chunks with timestamps
     chunks = []

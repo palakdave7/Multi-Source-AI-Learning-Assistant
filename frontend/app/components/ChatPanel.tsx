@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Send, BookOpen, Loader2 } from "lucide-react";
 
-const API = "http://localhost:8000/api/chat";
+const API = `${process.env.NEXT_PUBLIC_API_URL}/api/chat`;
 
 interface Message {
   role: "user" | "assistant";
