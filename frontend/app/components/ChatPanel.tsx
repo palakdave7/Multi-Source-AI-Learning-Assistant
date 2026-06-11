@@ -8,10 +8,12 @@ import {
   Copy,
   RefreshCw,
   Check,
+  Layers,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import toast from "react-hot-toast";
+
 function QuizView({
   quiz,
   loading,
@@ -210,6 +212,133 @@ export default function ChatPanel({ sessionId, sources }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const lastUserMessage = useRef<string>("");
 
+  const [flashcardMode, setFlashcardMode] = useState(false);
+  const [flashcards, setFlashcards] = useState<
+    { front: string; back: string }[]
+  >([]);
+  const [flashcardLoading, setFlashcardLoading] = useState(false);
+  function FlashcardsView({
+    flashcards,
+    loading,
+    onRegenerate,
+  }: {
+    flashcards: { front: string; back: string }[];
+    loading: boolean;
+    onRegenerate: () => void;
+  }) {
+    const [current, setCurrent] = useState(0);
+    const [flipped, setFlipped] = useState(false);
+    const [finished, setFinished] = useState(false);
+
+    useEffect(() => {
+      setFlipped(false);
+    }, [current]);
+    useEffect(() => {
+      setCurrent(0);
+      setFlipped(false);
+      setFinished(false);
+    }, [flashcards]);
+
+    if (loading)
+      return (
+        <div className="flex items-center gap-2 text-indigo-400 py-10 justify-center">
+          <Loader2 size={16} className="animate-spin" /> Generating
+          flashcards...
+        </div>
+      );
+
+    if (finished)
+      return (
+        <div className="flex flex-col items-center gap-4 py-10">
+          <div className="text-5xl">🎉</div>
+          <h3 className="text-white text-xl font-bold">All cards reviewed!</h3>
+          <p className="text-slate-400 text-sm">
+            Great job studying these concepts.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                setCurrent(0);
+                setFlipped(false);
+                setFinished(false);
+              }}
+              className="bg-slate-700 hover:bg-slate-600 text-white text-sm px-4 py-2 rounded-lg transition"
+            >
+              Review Again
+            </button>
+            <button
+              onClick={onRegenerate}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg transition flex items-center gap-2"
+            >
+              <RefreshCw size={14} /> New Set
+            </button>
+          </div>
+        </div>
+      );
+
+    const card = flashcards[current];
+
+    return (
+      <div className="max-w-2xl mx-auto space-y-4 py-4">
+        {/* Progress */}
+        <div className="flex items-center justify-between text-xs text-slate-400">
+          <span>
+            Card {current + 1} of {flashcards.length}
+          </span>
+          <button
+            onClick={onRegenerate}
+            className="flex items-center gap-1 hover:text-slate-200 transition"
+          >
+            <RefreshCw size={11} /> New set
+          </button>
+        </div>
+        <div className="w-full bg-slate-700 rounded-full h-1.5">
+          <div
+            className="bg-indigo-500 h-1.5 rounded-full transition-all"
+            style={{ width: `${((current + 1) / flashcards.length) * 100}%` }}
+          />
+        </div>
+
+        {/* Card */}
+        <div
+          onClick={() => setFlipped(!flipped)}
+          className="cursor-pointer bg-slate-800 border border-slate-700 hover:border-indigo-500 rounded-2xl p-8 min-h-[200px] flex flex-col items-center justify-center text-center transition-all"
+        >
+          <p className="text-xs text-slate-500 mb-3 uppercase tracking-wider">
+            {flipped ? "Answer" : "Question — click to reveal"}
+          </p>
+          <p className="text-white text-base leading-relaxed">
+            {flipped ? card.back : card.front}
+          </p>
+        </div>
+
+        {/* Navigation */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => {
+              setCurrent((c) => Math.max(0, c - 1));
+            }}
+            disabled={current === 0}
+            className="bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-white text-sm px-4 py-2 rounded-lg transition"
+          >
+            ← Previous
+          </button>
+          <p className="text-xs text-slate-500">Click card to flip</p>
+          <button
+            onClick={() => {
+              if (current + 1 >= flashcards.length) setFinished(true);
+              else {
+                setCurrent((c) => c + 1);
+              }
+            }}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg transition"
+          >
+            {current + 1 >= flashcards.length ? "Finish ✓" : "Next →"}
+          </button>
+        </div>
+      </div>
+    );
+  }
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, quiz]);
@@ -311,6 +440,25 @@ export default function ChatPanel({ sessionId, sources }: Props) {
     }
   }
 
+  async function loadFlashcards() {
+    setFlashcardLoading(true);
+    setFlashcardMode(true);
+    setQuizMode(false);
+    try {
+      const res = await fetch(`${API}/flashcards`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sessionId }),
+      });
+      const data = await res.json();
+      setFlashcards(data.flashcards);
+    } catch {
+      toast.error("Failed to generate flashcards");
+    } finally {
+      setFlashcardLoading(false);
+    }
+  }
+
   return (
     <div className="flex-1 flex flex-col h-full bg-[#0f1117]">
       {/* Header */}
@@ -328,6 +476,7 @@ export default function ChatPanel({ sessionId, sources }: Props) {
             onClick={() => {
               setQuizMode(false);
               setQuiz("");
+              setFlashcardMode(false);
             }}
             className={`text-xs px-3 py-1.5 rounded-lg transition ${!quizMode ? "bg-indigo-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-slate-600"}`}
           >
@@ -339,6 +488,13 @@ export default function ChatPanel({ sessionId, sources }: Props) {
             className={`text-xs px-3 py-1.5 rounded-lg transition flex items-center gap-1 ${quizMode ? "bg-indigo-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-slate-600"} disabled:opacity-40`}
           >
             <BookOpen size={12} /> Quiz Me
+          </button>
+          <button
+            onClick={loadFlashcards}
+            disabled={sources.length === 0}
+            className={`text-xs px-3 py-1.5 rounded-lg transition flex items-center gap-1 ${flashcardMode ? "bg-indigo-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-slate-600"} disabled:opacity-40`}
+          >
+            <Layers size={12} /> Flashcards
           </button>
           <button
             onClick={() => {
@@ -354,7 +510,13 @@ export default function ChatPanel({ sessionId, sources }: Props) {
 
       {/* Messages / Quiz */}
       <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-4 space-y-4">
-        {quizMode ? (
+        {flashcardMode ? (
+          <FlashcardsView
+            flashcards={flashcards}
+            loading={flashcardLoading}
+            onRegenerate={loadFlashcards}
+          />
+        ) : quizMode ? (
           <QuizView quiz={quiz} loading={quizLoading} onRegenerate={loadQuiz} />
         ) : (
           <>

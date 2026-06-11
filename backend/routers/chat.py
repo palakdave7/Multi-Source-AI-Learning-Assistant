@@ -56,3 +56,21 @@ async def quiz(req: QuizRequest):
 @router.get("/history")
 def history(session_id: str):
     return {"history": get_history(session_id)}
+
+class FlashcardRequest(BaseModel):
+    session_id: str
+
+
+@router.post("/flashcards")
+async def flashcards(req: FlashcardRequest):
+    sources = get_sources(req.session_id)
+    if not sources:
+        return {"flashcards": []}
+    chunks = retrieve_chunks(req.session_id, "key concepts definitions terms", top_k=8)
+    if not chunks:
+        combined = " ".join(s.get("summary_snippet", "") for s in sources)
+    else:
+        combined = "\n\n".join(f"[{c['ref']}]\n{c['text']}" for c in chunks)
+    from services.llm import generate_flashcards
+    cards = generate_flashcards(combined)
+    return {"flashcards": cards}

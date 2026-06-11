@@ -75,3 +75,23 @@ def generate_summary(text: str) -> str:
         max_tokens=256,
     )
     return response.choices[0].message.content
+def generate_flashcards(sources_text: str) -> list:
+    prompt = f"""Based on the following content, generate 8 flashcards for a learner.
+Return ONLY a JSON array, no markdown, no explanation. Format:
+[
+  {{"front": "question or concept", "back": "answer or explanation"}},
+  ...
+]
+
+CONTENT:
+{sources_text[:3000]}"""
+
+    response = _client.chat.completions.create(
+        model=MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=1024,
+    )
+    import json
+    text = response.choices[0].message.content.strip()
+    text = text.replace("```json", "").replace("```", "").strip()
+    return json.loads(text)
