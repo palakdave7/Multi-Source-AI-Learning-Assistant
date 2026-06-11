@@ -9,12 +9,16 @@ import uuid
 router = APIRouter()
 logger = get_logger("ingest")
 
-
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+
 
 def validate_url(url: str):
     if not url.startswith(("http://", "https://")):
-        raise HTTPException(status_code=400, detail="Invalid URL. Must start with http:// or https://")
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid URL. Must start with http:// or https://",
+        )
+
 
 @router.post("/youtube")
 async def ingest_youtube(session_id: str = Form(...), url: str = Form(...)):
@@ -26,12 +30,15 @@ async def ingest_youtube(session_id: str = Form(...), url: str = Form(...)):
     except Exception as e:
         logger.error(f"YouTube ingestion failed: {e}")
         raise HTTPException(status_code=400, detail=str(e))
+
     source_index = len(get_sources(session_id))
+    chunk_count = len(source["chunks"])
     index_chunks(session_id, source["chunks"], source_index)
     source["summary"] = generate_summary(source["summary_snippet"])
+    source["chunk_count"] = chunk_count
     source.pop("chunks")
     add_source(session_id, source)
-    logger.info(f"YouTube source added for session: {session_id}")
+    logger.info(f"YouTube source added for session: {session_id} | chunks: {chunk_count}")
     return {"source": source}
 
 
@@ -48,12 +55,15 @@ async def ingest_pdf(session_id: str = Form(...), file: UploadFile = File(...)):
     except Exception as e:
         logger.error(f"PDF ingestion failed: {e}")
         raise HTTPException(status_code=400, detail=str(e))
+
     source_index = len(get_sources(session_id))
+    chunk_count = len(source["chunks"])
     index_chunks(session_id, source["chunks"], source_index)
     source["summary"] = generate_summary(source["summary_snippet"])
+    source["chunk_count"] = chunk_count
     source.pop("chunks")
     add_source(session_id, source)
-    logger.info(f"PDF source added for session: {session_id}")
+    logger.info(f"PDF source added for session: {session_id} | chunks: {chunk_count}")
     return {"source": source}
 
 
@@ -65,18 +75,20 @@ async def ingest_pptx(session_id: str = Form(...), file: UploadFile = File(...))
         raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB.")
     if not file.filename.endswith(".pptx"):
         raise HTTPException(status_code=400, detail="Invalid file type. Only PPTX files are accepted.")
-
     try:
         source = process_pptx(content, file.filename)
     except Exception as e:
         logger.error(f"PPTX ingestion failed: {e}")
         raise HTTPException(status_code=400, detail=str(e))
+
     source_index = len(get_sources(session_id))
+    chunk_count = len(source["chunks"])
     index_chunks(session_id, source["chunks"], source_index)
     source["summary"] = generate_summary(source["summary_snippet"])
+    source["chunk_count"] = chunk_count
     source.pop("chunks")
     add_source(session_id, source)
-    logger.info(f"PPTX source added for session: {session_id}")
+    logger.info(f"PPTX source added for session: {session_id} | chunks: {chunk_count}")
     return {"source": source}
 
 
@@ -89,12 +101,15 @@ async def ingest_url(session_id: str = Form(...), url: str = Form(...)):
     except Exception as e:
         logger.error(f"URL ingestion failed: {e}")
         raise HTTPException(status_code=400, detail=str(e))
+
     source_index = len(get_sources(session_id))
+    chunk_count = len(source["chunks"])
     index_chunks(session_id, source["chunks"], source_index)
     source["summary"] = generate_summary(source["summary_snippet"])
+    source["chunk_count"] = chunk_count
     source.pop("chunks")
     add_source(session_id, source)
-    logger.info(f"URL source added for session: {session_id}")
+    logger.info(f"URL source added for session: {session_id} | chunks: {chunk_count}")
     return {"source": source}
 
 
