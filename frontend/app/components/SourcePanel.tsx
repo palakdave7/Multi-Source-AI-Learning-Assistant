@@ -19,9 +19,15 @@ interface Props {
   sessionId: string;
   sources: any[];
   setSources: (s: any[]) => void;
+  onClose?: () => void;
 }
 
-export default function SourcePanel({ sessionId, sources, setSources }: Props) {
+export default function SourcePanel({
+  sessionId,
+  sources,
+  setSources,
+  onClose,
+}: Props) {
   const [loading, setLoading] = useState(false);
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [webUrl, setWebUrl] = useState("");
@@ -96,11 +102,21 @@ export default function SourcePanel({ sessionId, sources, setSources }: Props) {
 
   return (
     <aside className="w-80 min-w-[280px] bg-[#161b27] border-r border-slate-700 flex flex-col h-full">
-      <div className="p-4 border-b border-slate-700">
-        <h1 className="text-lg font-bold text-white">📚 Samasocial AI</h1>
-        <p className="text-xs text-slate-400 mt-1">
-          Add sources to start learning
-        </p>
+      <div className="p-4 border-b border-slate-700 flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-bold text-white">📚 Samasocial AI</h1>
+          <p className="text-xs text-slate-400 mt-1">
+            Add sources to start learning
+          </p>
+        </div>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="md:hidden text-slate-400 hover:text-white transition"
+          >
+            <X size={18} />
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-4">
