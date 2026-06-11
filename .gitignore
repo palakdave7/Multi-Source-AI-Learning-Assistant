@@ -1,0 +1,19 @@
+# Environment
+backend/.env
+frontend/.env.local
+frontend/.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Node
+node_modules/
+.next/
+
+# Misc
+.DS_Store
