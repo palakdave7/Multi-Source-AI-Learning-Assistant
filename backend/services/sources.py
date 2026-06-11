@@ -10,7 +10,7 @@ from typing import List
 
 # ---------- helpers ----------
 
-def _chunk_text(text: str, chunk_size: int = 800, overlap: int = 100) -> List[str]:
+def _chunk_text(text: str, chunk_size: int = 1500, overlap: int = 150) -> List[str]:
     """Split text into overlapping chunks by word count."""
     words = text.split()
     chunks = []

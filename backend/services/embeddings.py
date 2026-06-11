@@ -1,22 +1,13 @@
-import google.generativeai as genai
-import os
+from sentence_transformers import SentenceTransformer
 from typing import List
 
-genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+# Loads once, stays in memory — fast after first load
+_model = SentenceTransformer("all-MiniLM-L6-v2")  # 80MB, free, local
+
 
 def embed_texts(texts: List[str]) -> List[List[float]]:
-    result = genai.embed_content(
-        model="models/gemini-embedding-001",
-        content=texts,
-        task_type="retrieval_document",
-    )
-    return result["embedding"]
+    return _model.encode(texts, show_progress_bar=False).tolist()
 
 
 def embed_query(text: str) -> List[float]:
-    result = genai.embed_content(
-        model="models/gemini-embedding-001",
-        content=text,
-        task_type="retrieval_query",
-    )
-    return result["embedding"]
+    return _model.encode(text, show_progress_bar=False).tolist()
