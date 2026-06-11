@@ -2,6 +2,7 @@ import os
 import re
 import httpx
 from bs4 import BeautifulSoup
+from utils.text import clean_text, chunk_text
 from pypdf import PdfReader
 from pptx import Presentation
 from youtube_transcript_api import YouTubeTranscriptApi
@@ -10,7 +11,7 @@ from typing import List
 
 # ---------- helpers ----------
 
-def _chunk_text(text: str, chunk_size: int = 1500, overlap: int = 150) -> List[str]:
+def chunk_text(text: str, chunk_size: int = 1500, overlap: int = 150) -> List[str]:
     """Split text into overlapping chunks by word count."""
     words = text.split()
     chunks = []
@@ -101,7 +102,7 @@ def process_pdf(file_bytes: bytes, filename: str) -> dict:
         text = page.extract_text() or ""
         if not text.strip():
             continue
-        for chunk in _chunk_text(text):
+        for chunk in chunk_text(text):
             chunks.append({
                 "text": chunk,
                 "ref": f"page {page_num} of {filename}",
@@ -133,7 +134,7 @@ def process_pptx(file_bytes: bytes, filename: str) -> dict:
         slide_text = " ".join(texts)
         if not slide_text.strip():
             continue
-        for chunk in _chunk_text(slide_text):
+        for chunk in chunk_text(slide_text):
             chunks.append({
                 "text": chunk,
                 "ref": f"slide {slide_num} of {filename}",
@@ -168,7 +169,7 @@ def process_url(url: str) -> dict:
     text = re.sub(r"\s+", " ", text)
 
     chunks = []
-    for chunk in _chunk_text(text):
+    for chunk in chunk_text(text):
         chunks.append({
             "text": chunk,
             "ref": f"from {url}",
