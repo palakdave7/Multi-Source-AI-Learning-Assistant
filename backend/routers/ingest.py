@@ -10,9 +10,17 @@ router = APIRouter()
 logger = get_logger("ingest")
 
 
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+
+def validate_url(url: str):
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="Invalid URL. Must start with http:// or https://")
+
 @router.post("/youtube")
 async def ingest_youtube(session_id: str = Form(...), url: str = Form(...)):
     logger.info(f"Ingesting YouTube URL: {url} for session: {session_id}")
+    if "youtube.com" not in url and "youtu.be" not in url:
+        raise HTTPException(status_code=400, detail="Invalid YouTube URL.")
     try:
         source = process_youtube(url)
     except Exception as e:
@@ -31,6 +39,10 @@ async def ingest_youtube(session_id: str = Form(...), url: str = Form(...)):
 async def ingest_pdf(session_id: str = Form(...), file: UploadFile = File(...)):
     logger.info(f"Ingesting PDF: {file.filename} for session: {session_id}")
     content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB.")
+    if not file.filename.endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Invalid file type. Only PDF files are accepted.")
     try:
         source = process_pdf(content, file.filename)
     except Exception as e:
@@ -49,6 +61,11 @@ async def ingest_pdf(session_id: str = Form(...), file: UploadFile = File(...)):
 async def ingest_pptx(session_id: str = Form(...), file: UploadFile = File(...)):
     logger.info(f"Ingesting PPTX: {file.filename} for session: {session_id}")
     content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB.")
+    if not file.filename.endswith(".pptx"):
+        raise HTTPException(status_code=400, detail="Invalid file type. Only PPTX files are accepted.")
+
     try:
         source = process_pptx(content, file.filename)
     except Exception as e:
@@ -66,6 +83,7 @@ async def ingest_pptx(session_id: str = Form(...), file: UploadFile = File(...))
 @router.post("/url")
 async def ingest_url(session_id: str = Form(...), url: str = Form(...)):
     logger.info(f"Ingesting URL: {url} for session: {session_id}")
+    validate_url(url)
     try:
         source = process_url(url)
     except Exception as e:
