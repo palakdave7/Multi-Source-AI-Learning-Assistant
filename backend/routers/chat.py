@@ -6,6 +6,11 @@ from services.llm import stream_answer, generate_quiz, generate_summary, generat
 from store import get_history, append_history, get_sources
 from logger import get_logger
 import json
+from fastapi import Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter()
 logger = get_logger("chat")
@@ -25,7 +30,8 @@ class FlashcardRequest(BaseModel):
 
 
 @router.post("/")
-async def chat(req: ChatRequest):
+@limiter.limit("10/minute")
+async def chat(request: Request, req: ChatRequest):
     logger.info(f"Chat | session: {req.session_id} | message: {req.message[:50]}")
     history = get_history(req.session_id)
     chunks = retrieve_chunks(req.session_id, req.message, top_k=5)
@@ -46,7 +52,8 @@ async def chat(req: ChatRequest):
 
 
 @router.post("/quiz")
-async def quiz(req: QuizRequest):
+@limiter.limit("5/minute")
+async def quiz(request: Request, req: QuizRequest):
     logger.info(f"Quiz | session: {req.session_id}")
     sources = get_sources(req.session_id)
     if not sources:
@@ -60,7 +67,8 @@ async def quiz(req: QuizRequest):
 
 
 @router.post("/flashcards")
-async def flashcards(req: FlashcardRequest):
+@limiter.limit("5/minute")
+async def flashcards(request: Request, req: FlashcardRequest):
     logger.info(f"Flashcards | session: {req.session_id}")
     sources = get_sources(req.session_id)
     if not sources:
