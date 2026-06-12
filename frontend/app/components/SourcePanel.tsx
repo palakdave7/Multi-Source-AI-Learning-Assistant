@@ -32,7 +32,7 @@ export default function SourcePanel({
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [webUrl, setWebUrl] = useState("");
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
-
+  const [dragOver, setDragOver] = useState(false);
   async function ingestYoutube() {
     if (!youtubeUrl.trim()) return;
     await ingest("youtube", { session_id: sessionId, url: youtubeUrl });
@@ -162,42 +162,53 @@ export default function SourcePanel({
           </button>
         </div>
 
-        {/* PDF */}
+        {/* File Upload - Drag & Drop */}
         <div className="space-y-2">
           <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-            <FileText size={12} className="text-blue-400" /> PDF File
+            <FileText size={12} className="text-blue-400" /> PDF / PowerPoint
           </label>
-          <label className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 border border-dashed border-slate-600 rounded-lg py-3 cursor-pointer transition text-sm text-slate-300">
-            <FileText size={14} /> Click to upload PDF
+          <label
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              const file = e.dataTransfer.files?.[0];
+              if (!file) return;
+              if (file.name.endsWith(".pdf")) ingestFile(file, "pdf");
+              else if (file.name.endsWith(".pptx")) ingestFile(file, "pptx");
+              else toast.error("Only PDF and PPTX files are supported");
+            }}
+            className={`w-full flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-lg py-6 cursor-pointer transition text-sm ${
+              dragOver
+                ? "border-indigo-500 bg-indigo-950 text-indigo-300"
+                : "border-slate-600 bg-slate-800 hover:bg-slate-700 text-slate-300"
+            }`}
+          >
+            <div className="flex gap-2">
+              <FileText size={18} className="text-blue-400" />
+              <Presentation size={18} className="text-orange-400" />
+            </div>
+            <span className="font-medium">Drag & drop or click to upload</span>
+            <span className="text-xs text-slate-500">
+              PDF or PPTX, max 10MB
+            </span>
             <input
               type="file"
-              accept=".pdf"
+              accept=".pdf,.pptx"
               className="hidden"
-              onChange={(e) =>
-                e.target.files?.[0] && ingestFile(e.target.files[0], "pdf")
-              }
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                if (file.name.endsWith(".pdf")) ingestFile(file, "pdf");
+                else if (file.name.endsWith(".pptx")) ingestFile(file, "pptx");
+              }}
             />
           </label>
         </div>
-
-        {/* PPTX */}
-        <div className="space-y-2">
-          <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-            <Presentation size={12} className="text-orange-400" /> PowerPoint
-          </label>
-          <label className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 border border-dashed border-slate-600 rounded-lg py-3 cursor-pointer transition text-sm text-slate-300">
-            <Presentation size={14} /> Click to upload PPTX
-            <input
-              type="file"
-              accept=".pptx"
-              className="hidden"
-              onChange={(e) =>
-                e.target.files?.[0] && ingestFile(e.target.files[0], "pptx")
-              }
-            />
-          </label>
-        </div>
-
         {/* Loading */}
         {loading && (
           <div className="bg-indigo-950 border border-indigo-700 rounded-lg p-3 space-y-1">
