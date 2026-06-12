@@ -1,13 +1,16 @@
 import chromadb
 from typing import Dict, List
 from config import get_settings
+from db import (
+    init_db, save_source, load_sources, clear_sources,
+    save_message, load_history, clear_history
+)
 
 settings = get_settings()
 
 chroma_client = chromadb.PersistentClient(path=settings.chroma_path)
 
-session_sources: Dict[str, List[dict]] = {}
-session_history: Dict[str, List[dict]] = {}
+init_db()
 
 
 def get_or_create_collection(session_id: str):
@@ -19,23 +22,19 @@ def get_or_create_collection(session_id: str):
 
 
 def add_source(session_id: str, source: dict):
-    if session_id not in session_sources:
-        session_sources[session_id] = []
-    session_sources[session_id].append(source)
+    save_source(session_id, source)
 
 
 def get_sources(session_id: str) -> List[dict]:
-    return session_sources.get(session_id, [])
+    return load_sources(session_id)
 
 
 def get_history(session_id: str) -> List[dict]:
-    return session_history.get(session_id, [])
+    return load_history(session_id)
 
 
 def append_history(session_id: str, role: str, content: str):
-    if session_id not in session_history:
-        session_history[session_id] = []
-    session_history[session_id].append({"role": role, "content": content})
+    save_message(session_id, role, content)
 
 
 def clear_session(session_id: str):
@@ -44,5 +43,5 @@ def clear_session(session_id: str):
         chroma_client.delete_collection(collection_name)
     except Exception:
         pass
-    session_sources.pop(session_id, None)
-    session_history.pop(session_id, None)
+    clear_sources(session_id)
+    clear_history(session_id)
