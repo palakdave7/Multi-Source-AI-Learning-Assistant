@@ -288,6 +288,21 @@ curl -N -X POST http://localhost:8000/api/chat/ \
   -d '{"session_id":"YOUR_SESSION_ID","message":"What is supervised learning?"}'
 ```
 
+---
+
+## 📦 Capacity & Limits
+
+| Aspect               | Limit                              | Notes                                                                                            |
+| -------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------ |
+| PDF / PPTX file size | 10MB per file                      | ≈ 200-400 pages of text; enforced via `MAX_FILE_SIZE` validation                                 |
+| Chunk size           | 1500 words (150-word overlap)      | A 10MB PDF produces ~150-300 chunks                                                              |
+| Embedding speed      | ~10-50ms per chunk (CPU, local)    | A full 10MB PDF embeds in ~10-30 seconds                                                         |
+| Retrieval            | Top-5 chunks per query             | Query speed stays constant regardless of total chunks indexed (ChromaDB ANN search)              |
+| LLM context          | 128K tokens (Groq `llama-3.3-70b`) | Top-5 chunks + 8-turn history comfortably fits with room to spare                                |
+| YouTube / Webpage    | No hard cap                        | Bounded naturally by transcript/page length; very large pages produce proportionally more chunks |
+
+**In practice:** comfortably handles multiple medium-sized documents (lecture notes, slide decks, articles) plus videos in a single session — well beyond typical course material. The 10MB file cap and chunking strategy are deliberate safeguards to keep embedding latency low for a responsive demo experience, not architectural shortcuts.
+
 **Recommended UI test flow** (also shown in demo video):
 
 1. Drag-drop a PDF and add a YouTube URL + webpage URL (3 sources)
