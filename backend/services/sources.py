@@ -40,21 +40,21 @@ def _extract_youtube_id(url: str) -> str:
 def process_youtube(url: str) -> dict:
     video_id = _extract_youtube_id(url)
     try:
-        transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
+        api = YouTubeTranscriptApi()
+        transcript_list = api.fetch(video_id)
     except Exception:
         raise ValueError("Could not fetch transcript. The video may have no captions or be private.")
 
-    # Build chunks with timestamps
     chunks = []
     buffer_text = []
     buffer_start = 0.0
     buffer_words = 0
 
     for entry in transcript_list:
-        words = entry["text"].split()
+        words = entry.text.split()
         if buffer_words == 0:
-            buffer_start = entry["start"]
-        buffer_text.append(entry["text"])
+            buffer_start = entry.start
+        buffer_text.append(entry.text)
         buffer_words += len(words)
         if buffer_words >= 150:
             timestamp = _format_timestamp(buffer_start)
@@ -71,7 +71,7 @@ def process_youtube(url: str) -> dict:
             "ref": f"at {_format_timestamp(buffer_start)} in the video",
         })
 
-    full_text = " ".join(e["text"] for e in transcript_list)
+    full_text = " ".join(e.text for e in transcript_list)
     summary_snippet = full_text[:500] + "..." if len(full_text) > 500 else full_text
 
     return {
@@ -81,7 +81,6 @@ def process_youtube(url: str) -> dict:
         "summary_snippet": summary_snippet,
         "chunks": chunks,
     }
-
 
 def _format_timestamp(seconds: float) -> str:
     m, s = divmod(int(seconds), 60)
