@@ -33,11 +33,11 @@ async def ingest_youtube(session_id: str = Form(...), url: str = Form(...)):
 
     source_index = len(get_sources(session_id))
     chunk_count = len(source["chunks"])
-    index_chunks(session_id, source["chunks"], source_index)
     source["summary"] = generate_summary(source["summary_snippet"])
     source["chunk_count"] = chunk_count
-    source.pop("chunks")
-    add_source(session_id, source)
+    chunks_data = source.pop("chunks")
+    source_id = add_source(session_id, source)
+    index_chunks(session_id, chunks_data, source_id, source_index)
     logger.info(f"YouTube source added for session: {session_id} | chunks: {chunk_count}")
     return {"source": source}
 
@@ -58,11 +58,11 @@ async def ingest_pdf(session_id: str = Form(...), file: UploadFile = File(...)):
 
     source_index = len(get_sources(session_id))
     chunk_count = len(source["chunks"])
-    index_chunks(session_id, source["chunks"], source_index)
     source["summary"] = generate_summary(source["summary_snippet"])
     source["chunk_count"] = chunk_count
-    source.pop("chunks")
-    add_source(session_id, source)
+    chunks_data = source.pop("chunks")
+    source_id = add_source(session_id, source)
+    index_chunks(session_id, chunks_data, source_id, source_index)
     logger.info(f"PDF source added for session: {session_id} | chunks: {chunk_count}")
     return {"source": source}
 
@@ -83,11 +83,11 @@ async def ingest_pptx(session_id: str = Form(...), file: UploadFile = File(...))
 
     source_index = len(get_sources(session_id))
     chunk_count = len(source["chunks"])
-    index_chunks(session_id, source["chunks"], source_index)
     source["summary"] = generate_summary(source["summary_snippet"])
     source["chunk_count"] = chunk_count
-    source.pop("chunks")
-    add_source(session_id, source)
+    chunks_data = source.pop("chunks")
+    source_id = add_source(session_id, source)
+    index_chunks(session_id, chunks_data, source_id, source_index)
     logger.info(f"PPTX source added for session: {session_id} | chunks: {chunk_count}")
     return {"source": source}
 
@@ -104,11 +104,11 @@ async def ingest_url(session_id: str = Form(...), url: str = Form(...)):
 
     source_index = len(get_sources(session_id))
     chunk_count = len(source["chunks"])
-    index_chunks(session_id, source["chunks"], source_index)
     source["summary"] = generate_summary(source["summary_snippet"])
     source["chunk_count"] = chunk_count
-    source.pop("chunks")
-    add_source(session_id, source)
+    chunks_data = source.pop("chunks")
+    source_id = add_source(session_id, source)
+    index_chunks(session_id, chunks_data, source_id, source_index)
     logger.info(f"URL source added for session: {session_id} | chunks: {chunk_count}")
     return {"source": source}
 
@@ -120,6 +120,8 @@ def get_session_sources(session_id: str):
 
 @router.post("/new-session")
 def new_session():
-    session_id = str(uuid.uuid4())
+    from db import create_session
+    session_id = create_session()
     logger.info(f"New session created: {session_id}")
     return {"session_id": session_id}
+

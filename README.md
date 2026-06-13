@@ -19,7 +19,7 @@ A production-quality, multi-source AI learning assistant built for the Samasocia
 - 🔀 **Multi-source sessions** — mix all source types together, add/remove individually, clear all
 - 🧠 **True RAG pipeline** — chunk → embed → store → retrieve top-K → build prompt → generate (never dumps full document)
 - 💬 **Streaming chat** — token-by-token SSE streaming with live skeleton loader
-- 🔁 **Session memory** — full conversation history powers natural follow-up questions
+- 🔁 **Session memory** — full conversation history (persisted in Postgres) powers natural follow-up questions
 - 🚫 **Out-of-scope detection** — politely declines questions not covered by loaded sources
 - 🗣️ **Explain modes** — "explain in simple terms", "summarize", bullet-point breakdowns on request
 - 🔗 **Cross-source reasoning** — retrieval pulls from all loaded sources simultaneously; answers can cite multiple sources in one response
@@ -45,8 +45,9 @@ samasocial-ai/
 ├── backend/
 │   ├── main.py                  # FastAPI app, middleware, CORS, rate limiting, routers
 │   ├── config.py                # Centralized settings (pydantic-settings)
-│   ├── store.py                 # Session store — ChromaDB (vectors) + SQLite (sources/history)
-│   ├── db.py                    # SQLite persistence layer
+│   ├── store.py                 # Thin data-access layer over Supabase (sessions/sources/history)
+│   ├── db.py                    # Supabase CRUD operations (sessions, sources, messages)
+│   ├── supabase_client.py       # Supabase client initialization
 │   ├── logger.py                # Structured logging (API, processing, errors)
 │   ├── .env.example
 │   ├── routers/
@@ -55,7 +56,7 @@ samasocial-ai/
 │   ├── services/
 │   │   ├── sources.py            # Source parsers (YouTube/PDF/PPTX/URL)
 │   │   ├── embeddings.py          # Local embeddings (sentence-transformers)
-│   │   ├── retrieval.py           # ChromaDB indexing + semantic search
+│   │   ├── retrieval.py           # pgvector indexing + semantic search (Supabase RPC)
 │   │   └── llm.py                 # Groq LLM — chat, quiz, flashcards, summaries
 │   ├── schemas/
 │   │   └── session.py             # Pydantic request/response models
@@ -76,6 +77,35 @@ samasocial-ai/
             └── SkeletonLoader.tsx    # Loading skeleton components
 ```
 
+### Database Schema (Supabase / Postgres + pgvector)
+
+```
+sessions
+├── id (uuid, PK)
+└── created_at
+
+sources
+├── id (uuid, PK)
+├── session_id (FK → sessions)
+├── type, label, summary, summary_snippet, url, chunk_count
+└── created_at
+
+chunks
+├── id (uuid, PK)
+├── session_id (FK → sessions)
+├── source_id (FK → sources)
+├── source_index, text, ref
+└── embedding (vector(384))
+
+messages
+├── id (uuid, PK)
+├── session_id (FK → sessions)
+├── role, content
+└── created_at
+
+match_chunks(query_embedding, session_id, match_count)  -- pgvector cosine similarity RPC
+```
+
 ### RAG Pipeline (every query)
 
 ```
@@ -91,13 +121,13 @@ Chunk with overlap (1500 words, 150-word overlap)
         ↓
 Generate embeddings (sentence-transformers, local, 384-dim)
         ↓
-Store in ChromaDB (persistent, cosine similarity, per-session collection)
+Store source row + chunk rows with embeddings in Supabase (Postgres + pgvector)
         ↓
 Generate & display source summary + chunk count
 ─────────────────────────────────────────────
 User asks a question
         ↓
-Embed query → semantic search → top-5 relevant chunks (across ALL sources)
+Embed query → pgvector cosine similarity RPC → top-5 relevant chunks (across ALL sources)
         ↓
 Build grounded prompt (context + conversation history)
         ↓
@@ -105,26 +135,26 @@ Stream response from Groq (llama-3.3-70b-versatile)
         ↓
 Render markdown, attach source citations
         ↓
-Persist message to SQLite (session history)
+Persist message to Supabase (session history)
 ```
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Layer              | Technology                                 | Why                                                                |
-| ------------------ | ------------------------------------------ | ------------------------------------------------------------------ |
-| Backend framework  | FastAPI                                    | Async, modular routers, native streaming support                   |
-| LLM                | Groq (`llama-3.3-70b-versatile`)           | Free tier with generous limits, fast inference, strong RAG quality |
-| Embeddings         | sentence-transformers (`all-MiniLM-L6-v2`) | Local, free, no rate limits, production-grade quality              |
-| Vector DB          | ChromaDB (persistent, disk-backed)         | Zero setup, cosine similarity, abstracted for easy swap            |
-| Relational store   | SQLite                                     | Lightweight persistence for sessions/sources/history               |
-| Rate limiting      | slowapi                                    | Per-IP limits on chat/quiz/flashcard endpoints                     |
-| Frontend framework | Next.js 14 (App Router) + TypeScript       | SSE streaming, modern routing, type safety                         |
-| Styling            | Tailwind CSS                               | Rapid, consistent, dark-themed UI                                  |
-| Animations         | framer-motion                              | Smooth message transitions, card flips                             |
-| Markdown           | react-markdown + remark-gfm                | Rich formatted AI responses                                        |
-| Notifications      | react-hot-toast                            | Non-blocking status feedback                                       |
+| Layer              | Technology                                 | Why                                                                            |
+| ------------------ | ------------------------------------------ | ------------------------------------------------------------------------------ |
+| Backend framework  | FastAPI                                    | Async, modular routers, native streaming support                               |
+| LLM                | Groq (`llama-3.3-70b-versatile`)           | Free tier with generous limits, fast inference, strong RAG quality             |
+| Embeddings         | sentence-transformers (`all-MiniLM-L6-v2`) | Local, free, no rate limits, production-grade quality                          |
+| Vector DB          | Supabase (Postgres + pgvector)             | Managed, scalable, supports concurrent multi-server access, built-in dashboard |
+| Relational store   | Supabase (Postgres)                        | Sessions, sources, and chat history in the same managed database               |
+| Rate limiting      | slowapi                                    | Per-IP limits on chat/quiz/flashcard endpoints                                 |
+| Frontend framework | Next.js 14 (App Router) + TypeScript       | SSE streaming, modern routing, type safety                                     |
+| Styling            | Tailwind CSS                               | Rapid, consistent, dark-themed UI                                              |
+| Animations         | framer-motion                              | Smooth message transitions, card flips                                         |
+| Markdown           | react-markdown + remark-gfm                | Rich formatted AI responses                                                    |
+| Notifications      | react-hot-toast                            | Non-blocking status feedback                                                   |
 
 ---
 
@@ -135,6 +165,13 @@ Persist message to SQLite (session history)
 - Python 3.11+
 - Node.js 18+
 - Free Groq API key — https://console.groq.com
+- Free Supabase project — https://supabase.com
+
+### Database Setup (Supabase)
+
+1. Create a new Supabase project
+2. Open the **SQL Editor** and run the schema script in `backend/schema.sql` (enables `pgvector`, creates `sessions`, `sources`, `chunks`, `messages` tables, and the `match_chunks` similarity-search function)
+3. Copy your **Project URL** and **service_role key** from Settings → API
 
 ### Backend
 
@@ -147,8 +184,9 @@ Create `backend/.env` (see `.env.example`):
 
 ```env
 GROQ_API_KEY=your_groq_api_key_here
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_KEY=your_supabase_service_role_key
 ALLOWED_ORIGINS=http://localhost:3000
-CHROMA_PATH=./chroma_data
 CHUNK_SIZE=1500
 CHUNK_OVERLAP=150
 TOP_K=5
@@ -189,8 +227,9 @@ Open **http://localhost:3000**
 | Variable                       | Where    | Required | Description                                                    |
 | ------------------------------ | -------- | -------- | -------------------------------------------------------------- |
 | `GROQ_API_KEY`                 | backend  | ✅       | LLM API key from console.groq.com                              |
+| `SUPABASE_URL`                 | backend  | ✅       | Supabase project URL                                           |
+| `SUPABASE_KEY`                 | backend  | ✅       | Supabase service role key (server-side, bypasses RLS)          |
 | `ALLOWED_ORIGINS`              | backend  | ❌       | Comma-separated CORS origins (default `http://localhost:3000`) |
-| `CHROMA_PATH`                  | backend  | ❌       | ChromaDB storage path (default `./chroma_data`)                |
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` | backend  | ❌       | Chunking parameters (defaults `1500` / `150`)                  |
 | `TOP_K`                        | backend  | ❌       | Retrieval depth (default `5`)                                  |
 | `MAX_HISTORY`                  | backend  | ❌       | Conversation turns sent to LLM (default `8`)                   |
@@ -224,11 +263,8 @@ Open **http://localhost:3000**
 **Groq for generation**
 `llama-3.3-70b-versatile` via Groq gives fast, high-quality, instruction-following output with a generous free tier — critical for reliable demos and iterative development without quota exhaustion.
 
-**ChromaDB (persistent) over a managed vector DB**
-Covers the assignment's evaluation and demo scope with zero external dependencies. `services/retrieval.py` is fully abstracted behind `index_chunks()` / `retrieve_chunks()` — swapping to Supabase pgvector or Qdrant for multi-server deployments touches only this one file.
-
-**SQLite for sessions/sources/history**
-Lightweight, zero-setup persistence layer (`db.py`) ensures data survives backend restarts — a meaningful upgrade over pure in-memory state, while staying dependency-free for local development and small deployments.
+**Supabase (Postgres + pgvector) for storage and retrieval**
+Sessions, sources, chat history, and chunk embeddings all live in one managed Postgres database. A `match_chunks` SQL function performs cosine-similarity search via pgvector, scoped per session. This gives a single source of truth that survives restarts, supports concurrent access, and scales to multiple backend instances without any application-level changes — `services/retrieval.py` and `db.py` are the only files that touch storage, keeping the rest of the app storage-agnostic.
 
 **SSE streaming over WebSockets**
 One-directional server→client token streaming maps cleanly onto FastAPI's `StreamingResponse` and the browser `fetch` + `ReadableStream` API, without the bidirectional complexity WebSockets would add for no benefit here.
@@ -236,8 +272,8 @@ One-directional server→client token streaming maps cleanly onto FastAPI's `Str
 **Chunking strategy**
 1500-word chunks with 150-word overlap balance retrieval precision with context preservation — overlap ensures ideas spanning chunk boundaries remain retrievable, while metadata (`page`/`slide`/`timestamp`/`url`) is preserved per chunk for accurate citations.
 
-**Per-session ChromaDB collections**
-Each session gets its own isolated vector collection (`session_<uuid>`), so retrieval never leaks across users/sessions and multi-source mixing stays scoped correctly.
+**Per-session scoping**
+Every chunk, source, and message row is tagged with `session_id`, and the `match_chunks` RPC filters by it — so retrieval never leaks across sessions and multi-source mixing stays correctly scoped within a session.
 
 ---
 
@@ -248,24 +284,24 @@ Each session gets its own isolated vector collection (`session_<uuid>`), so retr
 | **AI Quality**     | 30%    | True RAG pipeline (chunk→embed→retrieve→generate), grounded answers only, no full-document dumping, accurate page/slide/timestamp/URL citations, graceful out-of-scope refusal, follow-up + cross-source reasoning, "explain simply" mode |
 | **Code Quality**   | 25%    | Modular FastAPI (routers/services/schemas/middleware/prompts/utils), typed Pydantic models, centralized config, structured logging, no duplicated logic, consistent formatting                                                            |
 | **UI/UX**          | 20%    | Modern dark chat UI, drag-and-drop upload, source badges + summaries, streaming with skeleton loaders, markdown rendering, copy/regenerate/clear, empty/error/loading states, mobile responsive, framer-motion animations                 |
-| **Architecture**   | 15%    | Clear separation of concerns (ingestion / retrieval / generation / presentation), swappable vector store, env-based config, rate limiting, persistent storage layer                                                                       |
+| **Architecture**   | 15%    | Clear separation of concerns (ingestion / retrieval / generation / presentation), managed Postgres + pgvector for storage, env-based config, rate limiting                                                                                |
 | **Bonus Features** | 10%    | Multi-source with per-answer citations, interactive Quiz Me (scored MCQs), Flashcards (flip + progress), automatic source summaries — all implemented and working                                                                         |
 
 ---
 
 ## ⚠️ Production Roadmap
 
-This implementation is a complete, working RAG system with persistence, rate limiting, validation, and structured logging — not a prototype. For scaling beyond a single-server demo, these are the natural next steps:
+This implementation is a complete, working RAG system on a managed Postgres + pgvector backend, with rate limiting, validation, and structured logging — not a prototype. Remaining steps for full production scale:
 
-| Area               | Current                                 | Production Path                                                         |
-| ------------------ | --------------------------------------- | ----------------------------------------------------------------------- |
-| Vector storage     | ChromaDB, disk-persisted                | Supabase pgvector or Qdrant — `retrieval.py` is the only file to change |
-| Relational storage | SQLite                                  | PostgreSQL for concurrent multi-server access                           |
-| Session continuity | Fresh session per page load (by design) | Persist `session_id` in localStorage to resume across refreshes         |
-| Authentication     | None (single-user demo)                 | Supabase Auth / JWT                                                     |
-| File uploads       | Held in memory during processing        | Stream to S3 / Supabase Storage for larger files                        |
-| Server scaling     | Single uvicorn worker                   | `gunicorn -k uvicorn.workers.UvicornWorker -w 4 main:app`               |
-| Rate limiting      | ✅ Implemented (per-IP, in-memory)      | Redis-backed limiter for multi-instance deployments                     |
+| Area                        | Current                                 | Production Path                                                                            |
+| --------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Vector & relational storage | ✅ Supabase (Postgres + pgvector)       | Already production-grade; add read replicas / connection pooling (PgBouncer) at high scale |
+| Session continuity          | Fresh session per page load (by design) | Persist `session_id` in localStorage to resume across refreshes                            |
+| Authentication              | None (single-user demo)                 | Supabase Auth / JWT — pairs naturally with existing Supabase setup                         |
+| File uploads                | Held in memory during processing        | Stream to Supabase Storage for larger files                                                |
+| Server scaling              | Single uvicorn worker                   | `gunicorn -k uvicorn.workers.UvicornWorker -w 4 main:app`                                  |
+| Rate limiting               | ✅ Implemented (per-IP, in-memory)      | Redis-backed limiter for multi-instance deployments                                        |
+| Row-level security          | Service role key (server-side only)     | Add Supabase RLS policies once user auth is introduced                                     |
 
 ---
 
@@ -288,21 +324,6 @@ curl -N -X POST http://localhost:8000/api/chat/ \
   -d '{"session_id":"YOUR_SESSION_ID","message":"What is supervised learning?"}'
 ```
 
----
-
-## 📦 Capacity & Limits
-
-| Aspect               | Limit                              | Notes                                                                                            |
-| -------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------ |
-| PDF / PPTX file size | 10MB per file                      | ≈ 200-400 pages of text; enforced via `MAX_FILE_SIZE` validation                                 |
-| Chunk size           | 1500 words (150-word overlap)      | A 10MB PDF produces ~150-300 chunks                                                              |
-| Embedding speed      | ~10-50ms per chunk (CPU, local)    | A full 10MB PDF embeds in ~10-30 seconds                                                         |
-| Retrieval            | Top-5 chunks per query             | Query speed stays constant regardless of total chunks indexed (ChromaDB ANN search)              |
-| LLM context          | 128K tokens (Groq `llama-3.3-70b`) | Top-5 chunks + 8-turn history comfortably fits with room to spare                                |
-| YouTube / Webpage    | No hard cap                        | Bounded naturally by transcript/page length; very large pages produce proportionally more chunks |
-
-**In practice:** comfortably handles multiple medium-sized documents (lecture notes, slide decks, articles) plus videos in a single session — well beyond typical course material. The 10MB file cap and chunking strategy are deliberate safeguards to keep embedding latency low for a responsive demo experience, not architectural shortcuts.
-
 **Recommended UI test flow** (also shown in demo video):
 
 1. Drag-drop a PDF and add a YouTube URL + webpage URL (3 sources)
@@ -316,27 +337,44 @@ curl -N -X POST http://localhost:8000/api/chat/ \
 
 ---
 
+## 📦 Capacity & Limits
+
+| Aspect               | Limit                              | Notes                                                                                            |
+| -------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------ |
+| PDF / PPTX file size | 10MB per file                      | ≈ 200-400 pages of text; enforced via `MAX_FILE_SIZE` validation                                 |
+| Chunk size           | 1500 words (150-word overlap)      | A 10MB PDF produces ~150-300 chunks                                                              |
+| Embedding speed      | ~10-50ms per chunk (CPU, local)    | A full 10MB PDF embeds in ~10-30 seconds                                                         |
+| Retrieval            | Top-5 chunks per query             | pgvector ANN search keeps query latency roughly constant as chunk count grows                    |
+| LLM context          | 128K tokens (Groq `llama-3.3-70b`) | Top-5 chunks + 8-turn history comfortably fits with room to spare                                |
+| YouTube / Webpage    | No hard cap                        | Bounded naturally by transcript/page length; very large pages produce proportionally more chunks |
+| YouTube restrictions | Public videos with captions only   | Private/restricted videos or videos without captions return a clear error message                |
+
+**In practice:** comfortably handles multiple medium-sized documents (lecture notes, slide decks, articles) plus videos in a single session — well beyond typical course material. The 10MB file cap and chunking strategy are deliberate safeguards to keep embedding latency low for a responsive demo experience, not architectural shortcuts.
+
+---
+
 ## 🚀 Deployment
 
-**Not deployed for this submission** (deployment is an optional bonus per assignment guidelines). The application is deployment-ready with minor configuration:
+**Not deployed for this submission** (deployment is an optional bonus per assignment guidelines). The application is deployment-ready — Supabase already removes the biggest deployment blocker (no local file persistence needed):
 
 **Backend (Railway / Render)**
 
 - Build: `pip install -r requirements.txt`
 - Start: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-- Set env vars: `GROQ_API_KEY`, `ALLOWED_ORIGINS=<frontend-url>`
-- Attach a persistent volume for `chroma_data/` and `sessions.db`
+- Set env vars: `GROQ_API_KEY`, `SUPABASE_URL`, `SUPABASE_KEY`, `ALLOWED_ORIGINS=<frontend-url>`
+- No persistent volume needed — all state lives in Supabase
 
 **Frontend (Vercel)**
 
 - Set `NEXT_PUBLIC_API_URL=<backend-url>`
 - `npm run build`
 
-**Estimated effort:** ~30–45 minutes — mostly waiting on the `sentence-transformers`/`torch` dependency install on first deploy (~500MB), plus verifying CORS and persistent volume configuration on the chosen platform.
+**Estimated effort:** ~20–30 minutes — Supabase being external means no volume/storage configuration on the host; most of the time is the `sentence-transformers`/`torch` dependency install on first deploy (~500MB) and verifying CORS.
 
 ---
 
 ## 📝 Known Constraints
 
-- Each browser session starts fresh (no localStorage session resume) — a deliberate choice for a clean demo experience; backend persistence (SQLite + ChromaDB) ensures no data loss on server restarts mid-session.
+- Each browser session starts fresh (no localStorage session resume) — a deliberate choice for a clean demo experience; Supabase persistence ensures no data loss for existing sessions across backend restarts.
 - Single-user rate limits (10 req/min chat) are tuned for demo/dev use and would need adjustment for multi-tenant production traffic.
+- Uses the Supabase **service role key** server-side for simplicity; Row Level Security policies would be added alongside user authentication in a multi-tenant deployment.

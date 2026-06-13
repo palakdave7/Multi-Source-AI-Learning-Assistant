@@ -17,6 +17,3 @@ node_modules/
 
 # Misc
 .DS_Store
-
-backend/sessions.db
-backend/chroma_data/

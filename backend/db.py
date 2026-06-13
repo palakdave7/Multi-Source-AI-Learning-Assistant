@@ -1,82 +1,52 @@
-import sqlite3
-import json
+from supabase_client import supabase
 from typing import List, Dict
-from contextlib import contextmanager
-
-DB_PATH = "sessions.db"
+import uuid
 
 
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS sources (
-            session_id TEXT,
-            data TEXT
-        )
-    """)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS history (
-            session_id TEXT,
-            role TEXT,
-            content TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    conn.commit()
-    conn.close()
+def create_session() -> str:
+    session_id = str(uuid.uuid4())
+    supabase.table("sessions").insert({"id": session_id}).execute()
+    return session_id
 
 
-@contextmanager
-def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    try:
-        yield conn
-    finally:
-        conn.close()
-
-
-def save_source(session_id: str, source: dict):
-    with get_db() as conn:
-        conn.execute(
-            "INSERT INTO sources (session_id, data) VALUES (?, ?)",
-            (session_id, json.dumps(source)),
-        )
-        conn.commit()
+def save_source(session_id: str, source: dict) -> str:
+    result = supabase.table("sources").insert({
+        "session_id": session_id,
+        "type": source.get("type"),
+        "label": source.get("label"),
+        "summary": source.get("summary"),
+        "summary_snippet": source.get("summary_snippet"),
+        "url": source.get("url"),
+        "chunk_count": source.get("chunk_count"),
+    }).execute()
+    return result.data[0]["id"]
 
 
 def load_sources(session_id: str) -> List[dict]:
-    with get_db() as conn:
-        rows = conn.execute(
-            "SELECT data FROM sources WHERE session_id = ?", (session_id,)
-        ).fetchall()
-        return [json.loads(r[0]) for r in rows]
+    result = supabase.table("sources").select("*").eq("session_id", session_id).execute()
+    return result.data
 
 
 def clear_sources(session_id: str):
-    with get_db() as conn:
-        conn.execute("DELETE FROM sources WHERE session_id = ?", (session_id,))
-        conn.commit()
+    supabase.table("sources").delete().eq("session_id", session_id).execute()
 
 
 def save_message(session_id: str, role: str, content: str):
-    with get_db() as conn:
-        conn.execute(
-            "INSERT INTO history (session_id, role, content) VALUES (?, ?, ?)",
-            (session_id, role, content),
-        )
-        conn.commit()
+    supabase.table("messages").insert({
+        "session_id": session_id,
+        "role": role,
+        "content": content,
+    }).execute()
 
 
 def load_history(session_id: str) -> List[Dict]:
-    with get_db() as conn:
-        rows = conn.execute(
-            "SELECT role, content FROM history WHERE session_id = ? ORDER BY created_at",
-            (session_id,),
-        ).fetchall()
-        return [{"role": r[0], "content": r[1]} for r in rows]
+    result = supabase.table("messages").select("role, content").eq("session_id", session_id).order("created_at").execute()
+    return result.data
 
 
 def clear_history(session_id: str):
-    with get_db() as conn:
-        conn.execute("DELETE FROM history WHERE session_id = ?", (session_id,))
-        conn.commit()
+    supabase.table("messages").delete().eq("session_id", session_id).execute()
+
+
+def init_db():
+    pass  # No-op, Supabase tables already created via SQL editor

@@ -4,8 +4,9 @@ from functools import lru_cache
 
 class Settings(BaseSettings):
     groq_api_key: str
+    supabase_url: str
+    supabase_key: str
     allowed_origins: str = "http://localhost:3000"
-    chroma_path: str = "./chroma_data"
     chunk_size: int = 1500
     chunk_overlap: int = 150
     top_k: int = 5
