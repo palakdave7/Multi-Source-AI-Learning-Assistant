@@ -2,10 +2,6 @@
 
 A production-quality, multi-source AI learning assistant built for the Samasocial Technical Assignment (Task 1). Upload PDFs, PowerPoints, YouTube videos, and webpages — then chat, get explanations, take quizzes, and study with flashcards, all grounded strictly in your own material.
 
-**GitHub Repository:** `<your-repo-link>`
-**Demo Video:** `<your-loom-link>`
-**Live Deployment:** Not deployed (see [Deployment](#-deployment) section for instructions and effort estimate)
-
 ---
 
 ## ✨ Features
